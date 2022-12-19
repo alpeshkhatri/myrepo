@@ -1,8 +1,11 @@
 #/bin/bash
+ZONE=
+PROJECT=
+REGION=
 # gcloud compute regions list
-gcloud config set compute/region us-central1
+gcloud config set compute/region ${REGION}
 # gcloud computer zones list
-gcloud config set compute/zone us-central1-c
+gcloud config set compute/zone ${ZONE}
 
 for s in m1 w{1..3}
 do
