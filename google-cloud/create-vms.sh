@@ -1,5 +1,8 @@
 #/bin/bash
 set -x 
+export ZONE=us-central1-c
+export REGION=us-central1
+export PROJECT=$(gcloud config get-value project)
 # gcloud compute regions list
 gcloud config set compute/region ${REGION}
 # gcloud computer zones list
