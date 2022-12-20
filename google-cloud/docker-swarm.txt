@@ -1,0 +1,5 @@
+alias gssh='gcloud compute ssh'
+gssh m1 --command 'docker swarm init --advertise-addr=$(hostname -i)' | tee /tmp/aa
+gssh w1 --command 'docker swarm join --token SWMTKN-1-5bfzrl3wf8yrl5eurk6v9xsytfcczcevxfll4vx8qko3c68m60-7fm1iahzhmnb0oi87uo3kqy1c 10.128.0.6:2377'
+gssh w2 --command 'docker swarm join --token SWMTKN-1-5bfzrl3wf8yrl5eurk6v9xsytfcczcevxfll4vx8qko3c68m60-7fm1iahzhmnb0oi87uo3kqy1c 10.128.0.6:2377'
+gssh w3 --command 'docker swarm join --token SWMTKN-1-5bfzrl3wf8yrl5eurk6v9xsytfcczcevxfll4vx8qko3c68m60-7fm1iahzhmnb0oi87uo3kqy1c 10.128.0.6:2377'
