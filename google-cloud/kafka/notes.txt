@@ -14,12 +14,15 @@ docker compose down
 sudo apt-get -y install default-jdk
 
 ## copy java file to broker container
-docker cp KafkaConsumerExample.java broker:/home/appuser/KafkaConsumerExample.java
-docker cp broker:/home/appuser/KafkaConsumerExample.class KafkaConsumerExample.class
+docker cp KafkaConsumerExample.java tools:/home/appuser/
+docker cp KafkaConsumerExample.class tools:/home/appuser/
+docker cp tools:/home/appuser/KafkaConsumerExample.java ./
+docker cp tools:/home/appuser/KafkaConsumerExample.class ./
 
 ## execute in broker container
-docker exec -it broker s
+docker exec -it tools /bin/bash
 export CLASSPATH
 for s in /usr/share/java/kafka/*.jar; do CLASSPATH="${CLASSPATH}:${s}"; done
 javac KafkaConsumerExample.java
+java KafkaConsumerExample --bootstrap broker:29092 --topic quickstart
 
