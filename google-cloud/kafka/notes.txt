@@ -8,3 +8,18 @@ docker exec --interactive --tty broker kafka-console-producer --bootstrap-server
 docker exec --interactive --tty broker kafka-console-consumer --bootstrap-server broker:9092 --topic quickstart --from-beginning
 ## shut broker down
 docker compose down
+
+
+## install java
+sudo apt-get -y install default-jdk
+
+## copy java file to broker container
+docker cp KafkaConsumerExample.java broker:/home/appuser/KafkaConsumerExample.java
+docker cp broker:/home/appuser/KafkaConsumerExample.class KafkaConsumerExample.class
+
+## execute in broker container
+docker exec -it broker s
+export CLASSPATH
+for s in /usr/share/java/kafka/*.jar; do CLASSPATH="${CLASSPATH}:${s}"; done
+javac KafkaConsumerExample.java
+
