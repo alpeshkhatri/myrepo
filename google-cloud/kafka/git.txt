@@ -1,0 +1,8 @@
+sudo apt-get install -y git
+git clone https://github.com/alpeshkhatri/myrepo
+git status
+git add --all
+git status
+git log
+git commit -m  'added stuff to run kafka'
+git push origin master
