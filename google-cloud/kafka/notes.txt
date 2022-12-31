@@ -26,3 +26,5 @@ for s in /usr/share/java/kafka/*.jar; do CLASSPATH="${CLASSPATH}:${s}"; done
 javac KafkaConsumerExample.java
 java KafkaConsumerExample --bootstrap broker:29092 --topic quickstart
 
+docker exec -it broker-0 kafka-run-class.sh kafka.tools.DumpLogSegments --deep-iteration --print-data-log --files /tmp/logs/kafka-logs/broker-0/cars-0/00000000000000000000.log
+
