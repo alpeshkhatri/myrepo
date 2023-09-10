@@ -4,14 +4,25 @@ import java.security.*;
 import java.security.cert.CertificateException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.Properties;
 
 public class SSLServer {
-    private static final int PORT = 12345;
-    private static final String KEYSTORE_PATH = "serverKeystore.jks";
-    private static final String KEYSTORE_PASSWORD = "password";
 
     public static void main(String[] args) {
+            Properties prop = new Properties();
         try {
+		try (InputStream input = new FileInputStream("ssl.properties")) {
+
+
+            // load a properties file
+            prop.load(input);
+
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+    int PORT = Integer.parseInt(prop.getProperty("PORT")) ;
+    String KEYSTORE_PATH = prop.getProperty("KEYSTORE_PATH") ;
+    String KEYSTORE_PASSWORD = prop.getProperty("KEYSTORE_PASSWORD") ;
             // Load the keystore
             KeyStore keyStore = KeyStore.getInstance("JKS");
             FileInputStream keystoreFile = new FileInputStream(KEYSTORE_PATH);
