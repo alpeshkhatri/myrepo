@@ -1,0 +1,136 @@
+#!/usr/bin/env python3
+# jar_duplicate_scanner.py - Scans JAR files to find duplicate classes
+
+import os
+import zipfile
+import argparse
+from collections import defaultdict
+import fnmatch
+import sys
+
+def find_jar_files(directory, recursive=True, pattern="*.jar"):
+    """Find all JAR files in the specified directory"""
+    jar_files = []
+    
+    if recursive:
+        for root, _, files in os.walk(directory):
+            for file in fnmatch.filter(files, pattern):
+                jar_files.append(os.path.join(root, file))
+    else:
+        for file in fnmatch.filter(os.listdir(directory), pattern):
+            jar_files.append(os.path.join(directory, file))
+            
+    return jar_files
+
+def extract_class_names(jar_path):
+    """Extract class names from a JAR file"""
+    class_files = []
+    
+    try:
+        with zipfile.ZipFile(jar_path, 'r') as jar:
+            for file_info in jar.infolist():
+                filename = file_info.filename
+                # Only consider .class files and skip directories
+                if filename.endswith('.class') and not filename.startswith('META-INF/'):
+                    # Convert to standard Java package format
+                    class_name = filename.replace('/', '.').replace('.class', '')
+                    class_files.append(class_name)
+    except zipfile.BadZipFile:
+        print(f"Warning: {jar_path} is not a valid ZIP/JAR file", file=sys.stderr)
+    except Exception as e:
+        print(f"Error processing {jar_path}: {str(e)}", file=sys.stderr)
+        
+    return class_files
+
+def find_duplicate_classes(jar_files, exclude_patterns=None):
+    """Find duplicate classes across JAR files"""
+    class_to_jars = defaultdict(list)
+    jar_to_classes = {}
+    
+    # Process each JAR file
+    total_jars = len(jar_files)
+    for index, jar_path in enumerate(jar_files):
+        # Skip if jar matches any exclude pattern
+        if exclude_patterns and any(fnmatch.fnmatch(os.path.basename(jar_path), pattern) for pattern in exclude_patterns):
+            continue
+            
+        # Show progress
+        print(f"Processing {index+1}/{total_jars}: {os.path.basename(jar_path)}", file=sys.stderr)
+        
+        # Extract class names from JAR
+        classes = extract_class_names(jar_path)
+        jar_to_classes[jar_path] = classes
+        
+        # Add JAR to the map for each class
+        for class_name in classes:
+            class_to_jars[class_name].append(jar_path)
+    
+    # Find classes that appear in multiple JARs
+    duplicates = {class_name: jars for class_name, jars in class_to_jars.items() if len(jars) > 1}
+    
+    return duplicates, jar_to_classes
+
+def print_report(duplicates, jar_to_classes, show_all_classes=False, output_format="text"):
+    """Print a report of duplicate classes"""
+    if output_format == "text":
+        print("\n===== DUPLICATE CLASSES REPORT =====")
+        
+        if not duplicates:
+            print("No duplicate classes found.")
+            return
+            
+        print(f"Found {len(duplicates)} duplicate classes across JAR files.\n")
+        
+        for class_name, jars in sorted(duplicates.items()):
+            print(f"Class: {class_name}")
+            print(f"Found in {len(jars)} JAR files:")
+            for jar in sorted(jars):
+                print(f"  - {jar}")
+            print()
+            
+        if show_all_classes:
+            print("\n===== ALL CLASSES BY JAR =====")
+            for jar, classes in sorted(jar_to_classes.items()):
+                print(f"\nJAR: {jar}")
+                print(f"Contains {len(classes)} classes:")
+                for class_name in sorted(classes):
+                    print(f"  - {class_name}")
+    
+    elif output_format == "csv":
+        print("class_name,jar_file")
+        for class_name, jars in sorted(duplicates.items()):
+            for jar in sorted(jars):
+                print(f"\"{class_name}\",\"{jar}\"")
+
+def main():
+    parser = argparse.ArgumentParser(description='Scan JAR files to find duplicate classes')
+    parser.add_argument('directory', help='Directory containing JAR files')
+    parser.add_argument('-r', '--recursive', action='store_true', 
+                        help='Scan subdirectories recursively (default: True)')
+    parser.add_argument('-e', '--exclude', action='append', 
+                        help='Exclude JARs matching this pattern (can be used multiple times)')
+    parser.add_argument('-a', '--all-classes', action='store_true',
+                        help='Show all classes in each JAR (default: False)')
+    parser.add_argument('-f', '--format', choices=['text', 'csv'], default='text',
+                        help='Output format (default: text)')
+    
+    args = parser.parse_args()
+    
+    # Find all JAR files in the specified directory
+    jar_files = find_jar_files(args.directory, args.recursive)
+    
+    if not jar_files:
+        print(f"No JAR files found in {args.directory}")
+        return
+    
+    print(f"Found {len(jar_files)} JAR files. Scanning for duplicate classes...", file=sys.stderr)
+    
+    # Find duplicate classes
+    duplicates, jar_to_classes = find_duplicate_classes(jar_files, args.exclude)
+    
+    # Print report
+    print_report(duplicates, jar_to_classes, args.all_classes, args.format)
+
+if __name__ == "__main__":
+    main()
+
