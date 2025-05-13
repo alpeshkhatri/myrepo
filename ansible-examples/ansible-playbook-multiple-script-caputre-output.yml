@@ -1,0 +1,67 @@
+---
+# playbook.yml - Example of running multiple scripts and capturing outputs
+- name: Execute multiple scripts with output capture
+  hosts: webservers
+  gather_facts: no
+  vars:
+    script_dir: "/path/to/scripts"
+    output_dir: "/tmp/script_outputs"
+    cleanup: true
+    
+  tasks:
+    - name: Create output directory
+      file:
+        path: "{{ output_dir }}"
+        state: directory
+        mode: '0755'
+      
+    - name: Run initial data collection script
+      script: "{{ script_dir }}/collect_data.sh"
+      register: initial_data
+      
+    - name: Store initial data in file
+      copy:
+        content: "{{ initial_data.stdout }}"
+        dest: "{{ output_dir }}/initial_data.txt"
+        
+    - name: Process data with second script
+      script: "{{ script_dir }}/process_data.sh {{ output_dir }}/initial_data.txt"
+      register: processed_data
+      
+    - name: Parse processed data
+      set_fact:
+        parsed_data: "{{ processed_data.stdout | from_json }}"
+      when: processed_data.stdout is defined and processed_data.stdout != ""
+      
+    - name: Generate report based on processed data
+      script: "{{ script_dir }}/generate_report.sh '{{ parsed_data | to_json }}'"
+      register: report_output
+      when: parsed_data is defined
+      
+    - name: Store final report
+      copy:
+        content: "{{ report_output.stdout }}"
+        dest: "{{ output_dir }}/final_report.txt"
+      when: report_output is defined and report_output.stdout is defined
+      
+    - name: Display execution summary
+      debug:
+        msg:
+          - "Initial data size: {{ initial_data.stdout | length }}"
+          - "Processed data entries: {{ parsed_data.count | default('N/A') }}"
+          - "Report generated: {{ 'Yes' if report_output.rc|default(1) == 0 else 'No' }}"
+          
+    - name: Check for errors in any script
+      fail:
+        msg: "Script execution failed: {{ item.name }} with error: {{ item.stderr }}"
+      when: item.rc is defined and item.rc != 0
+      loop:
+        - { name: "collect_data.sh", rc: "{{ initial_data.rc|default(0) }}", stderr: "{{ initial_data.stderr|default('') }}" }
+        - { name: "process_data.sh", rc: "{{ processed_data.rc|default(0) }}", stderr: "{{ processed_data.stderr|default('') }}" }
+        - { name: "generate_report.sh", rc: "{{ report_output.rc|default(0) }}", stderr: "{{ report_output.stderr|default('') }}" }
+      
+    - name: Clean up temporary files
+      file:
+        path: "{{ output_dir }}"
+        state: absent
+      when: cleanup | bool
