@@ -1,0 +1,109 @@
+---
+# redis_connectivity_check.yml
+# Ansible playbook to verify Redis connectivity from multiple sources to multiple destinations
+# Usage: ansible-playbook redis_connectivity_check.yml -e @redis_hosts.yml
+
+- name: Verify Redis connectivity from multiple sources to multiple destinations
+  hosts: "{{ source_hosts | default('localhost') }}"
+  gather_facts: yes
+  become: no
+  
+  vars:
+    # Default values which can be overridden via a vars file
+    redis_destinations:
+      - name: "local-redis"
+        host: "127.0.0.1"
+        port: 6379
+        password: ""  # Leave empty for no password
+    
+    # Default test timeout in seconds
+    connection_timeout: 5
+    
+    # Default Redis module for Python, prefer redis-py if available
+    redis_module: "redis"
+    
+    # Enable verbose output
+    verbose_output: true
+  
+  tasks:
+    - name: Ensure Python Redis module is installed
+      pip:
+        name: "{{ redis_module }}"
+        state: present
+      become: yes
+      register: pip_result
+      ignore_errors: yes
+      
+    - name: Display warning if Redis module installation failed
+      debug:
+        msg: "WARNING: Failed to install Redis Python module. Connectivity checks will likely fail."
+      when: pip_result is failed
+    
+    - name: Check connectivity for each Redis destination
+      block:
+        - name: Test Redis connectivity
+          ansible.builtin.shell: |
+            python3 -c "
+            import {{ redis_module }}
+            import sys
+            
+            try:
+                r = {{ redis_module }}.Redis(
+                    host='{{ item.host }}',
+                    port={{ item.port }},
+                    password='{{ item.password | default('') }}',
+                    socket_timeout={{ connection_timeout }},
+                    socket_connect_timeout={{ connection_timeout }}
+                )
+                r.ping()
+                print('OK: Connection successful')
+                sys.exit(0)
+            except Exception as e:
+                print(f'FAILED: {str(e)}')
+                sys.exit(1)
+            "
+          register: redis_test_results
+          ignore_errors: yes
+          loop: "{{ redis_destinations }}"
+          loop_control:
+            label: "{{ item.name }} ({{ item.host }}:{{ item.port }})"
+          changed_when: false
+    
+    - name: Summarize Redis connectivity results
+      debug:
+        msg: "{{ item.item.name }} ({{ item.item.host }}:{{ item.item.port }}): {{ 'SUCCESS' if item.rc == 0 else 'FAILED - ' + item.stdout }}"
+      loop: "{{ redis_test_results.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+    
+    - name: Collect overall connectivity status
+      set_fact:
+        connectivity_status: "{{ connectivity_status | default([]) + [{'source': inventory_hostname, 'destination': item.item.name, 'host': item.item.host, 'port': item.item.port, 'status': 'UP' if item.rc == 0 else 'DOWN', 'message': item.stdout }] }}"
+      loop: "{{ redis_test_results.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+    
+    - name: Display verbose details of all connectivity tests
+      debug:
+        msg: |
+          Source: {{ item.source }}
+          Destination: {{ item.destination }} ({{ item.host }}:{{ item.port }})
+          Status: {{ item.status }}
+          Details: {{ item.message }}
+      loop: "{{ connectivity_status }}"
+      when: verbose_output
+    
+    - name: Save connectivity results to file (on localhost)
+      delegate_to: localhost
+      copy:
+        content: "{{ connectivity_status | to_nice_yaml }}"
+        dest: "./redis_connectivity_results_{{ inventory_hostname }}.yml"
+      changed_when: false
+
+    - name: Generate overall status
+      set_fact:
+        overall_status: "{{ 'HEALTHY' if connectivity_status | map(attribute='status') | list | select('match', 'DOWN') | list | length == 0 else 'UNHEALTHY' }}"
+    
+    - name: Display overall connectivity status
+      debug:
+        msg: "Overall Redis connectivity status for {{ inventory_hostname }}: {{ overall_status }}"
