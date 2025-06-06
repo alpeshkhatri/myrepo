@@ -1,2 +1,3 @@
 https://www.clockwork.io/cloud-clocksync-showdown-ntpd-vs-chrony-vs-clockwork
 
+https://developers.redhat.com/articles/2023/01/30/run-app-under-openshift-service-mesh
