@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MRTG to Chart.js Converter</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .input-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+            color: #555;
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            resize: vertical;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .chart-container {
+            margin-top: 30px;
+            height: 400px;
+            position: relative;
+        }
+        .sample-data {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        .sample-data h3 {
+            margin-top: 0;
+            color: #1976d2;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>MRTG to Chart.js Converter</h1>
+        
+        <div class="input-section">
+            <label for="mrtgData">Paste your MRTG log data here:</label>
+            <textarea id="mrtgData" placeholder="Paste MRTG data in format: timestamp in_value out_value in_max out_max"></textarea>
+            
+            <div class="sample-data">
+                <h3>Sample MRTG Data Format:</h3>
+                <pre>1640995200 1024000 2048000 5120000 10240000
+1640995500 1536000 2560000 5120000 10240000
+1640995800 2048000 3072000 5120000 10240000</pre>
+                <p><strong>Format:</strong> timestamp in_bytes out_bytes in_max out_max</p>
+            </div>
+            
+            <button onclick="loadSampleData()">Load Sample Data</button>
+            <button onclick="parseAndChart()">Convert to Chart</button>
+        </div>
+
+        <div class="stats" id="statsContainer" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-value" id="totalPoints">0</div>
+                <div class="stat-label">Data Points</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="maxIn">0</div>
+                <div class="stat-label">Max In (Mbps)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="maxOut">0</div>
+                <div class="stat-label">Max Out (Mbps)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="avgIn">0</div>
+                <div class="stat-label">Avg In (Mbps)</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="trafficChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        let chart = null;
+
+        function loadSampleData() {
+            const sampleData = generateSampleMRTGData();
+            document.getElementById('mrtgData').value = sampleData;
+        }
+
+        function generateSampleMRTGData() {
+            const now = Math.floor(Date.now() / 1000);
+            let data = '';
+            
+            for (let i = 0; i < 50; i++) {
+                const timestamp = now - (50 - i) * 300; // 5-minute intervals
+                const inTraffic = Math.floor(Math.random() * 5000000) + 1000000; // 1-6 Mbps
+                const outTraffic = Math.floor(Math.random() * 3000000) + 500000; // 0.5-3.5 Mbps
+                const maxIn = 10000000; // 10 Mbps max
+                const maxOut = 10000000;
+                
+                data += `${timestamp} ${inTraffic} ${outTraffic} ${maxIn} ${maxOut}\n`;
+            }
+            
+            return data.trim();
+        }
+
+        function parseAndChart() {
+            const rawData = document.getElementById('mrtgData').value.trim();
+            
+            if (!rawData) {
+                alert('Please paste MRTG data first');
+                return;
+            }
+
+            try {
+                const parsedData = parseMRTGData(rawData);
+                createChart(parsedData);
+                updateStats(parsedData);
+            } catch (error) {
+                alert('Error parsing data: ' + error.message);
+            }
+        }
+
+        function parseMRTGData(rawData) {
+            const lines = rawData.split('\n').filter(line => line.trim());
+            const data = [];
+            
+            for (const line of lines) {
+                const parts = line.trim().split(/\s+/);
+                if (parts.length >= 3) {
+                    const timestamp = parseInt(parts[0]);
+                    const inBytes = parseInt(parts[1]);
+                    const outBytes = parseInt(parts[2]);
+                    
+                    // Convert to Mbps (bytes * 8 / 1000000)
+                    const inMbps = (inBytes * 8) / 1000000;
+                    const outMbps = (outBytes * 8) / 1000000;
+                    
+                    data.push({
+                        timestamp: timestamp,
+                        date: new Date(timestamp * 1000),
+                        inMbps: inMbps,
+                        outMbps: outMbps,
+                        inBytes: inBytes,
+                        outBytes: outBytes
+                    });
+                }
+            }
+            
+            return data.sort((a, b) => a.timestamp - b.timestamp);
+        }
+
+        function createChart(data) {
+            const ctx = document.getElementById('trafficChart').getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (chart) {
+                chart.destroy();
+            }
+
+            const labels = data.map(point => point.date.toLocaleTimeString());
+            const inData = data.map(point => point.inMbps.toFixed(2));
+            const outData = data.map(point => point.outMbps.toFixed(2));
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Incoming Traffic (Mbps)',
+                        data: inData,
+                        borderColor: '#28a745',
+                        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }, {
+                        label: 'Outgoing Traffic (Mbps)',
+                        data: outData,
+                        borderColor: '#dc3545',
+                        backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Traffic (Mbps)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Time'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Network Traffic Over Time'
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    }
+                }
+            });
+        }
+
+        function updateStats(data) {
+            document.getElementById('statsContainer').style.display = 'grid';
+            
+            const inValues = data.map(d => d.inMbps);
+            const outValues = data.map(d => d.outMbps);
+            
+            document.getElementById('totalPoints').textContent = data.length;
+            document.getElementById('maxIn').textContent = Math.max(...inValues).toFixed(1);
+            document.getElementById('maxOut').textContent = Math.max(...outValues).toFixed(1);
+            document.getElementById('avgIn').textContent = (inValues.reduce((a, b) => a + b, 0) / inValues.length).toFixed(1);
+        }
+
+        // Load sample data on page load
+        window.onload = function() {
+            loadSampleData();
+            parseAndChart();
+        };
+    </script>
+</body>
+</html>
