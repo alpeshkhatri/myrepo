@@ -1,0 +1,118 @@
+# HELP kafka_server_brokertopicmetrics_bytesinpersec Bytes in per second for broker topics
+# TYPE kafka_server_brokertopicmetrics_bytesinpersec gauge
+kafka_server_brokertopicmetrics_bytesinpersec{topic="user-events",} 1234.5
+kafka_server_brokertopicmetrics_bytesinpersec{topic="order-events",} 2345.6
+kafka_server_brokertopicmetrics_bytesinpersec{topic="",} 3580.1
+
+# HELP kafka_server_brokertopicmetrics_bytesoutpersec Bytes out per second for broker topics
+# TYPE kafka_server_brokertopicmetrics_bytesoutpersec gauge
+kafka_server_brokertopicmetrics_bytesoutpersec{topic="user-events",} 987.3
+kafka_server_brokertopicmetrics_bytesoutpersec{topic="order-events",} 1876.2
+kafka_server_brokertopicmetrics_bytesoutpersec{topic="",} 2863.5
+
+# HELP kafka_server_brokertopicmetrics_messagesinpersec Messages in per second for broker topics
+# TYPE kafka_server_brokertopicmetrics_messagesinpersec gauge
+kafka_server_brokertopicmetrics_messagesinpersec{topic="user-events",} 45.2
+kafka_server_brokertopicmetrics_messagesinpersec{topic="order-events",} 78.9
+kafka_server_brokertopicmetrics_messagesinpersec{topic="",} 124.1
+
+# HELP kafka_server_replicamanager_leadercount Number of leader replicas on broker
+# TYPE kafka_server_replicamanager_leadercount gauge
+kafka_server_replicamanager_leadercount 12.0
+
+# HELP kafka_server_replicamanager_partitioncount Number of partitions on broker
+# TYPE kafka_server_replicamanager_partitioncount gauge
+kafka_server_replicamanager_partitioncount 24.0
+
+# HELP kafka_server_replicamanager_underreplicatedpartitions Number of under-replicated partitions
+# TYPE kafka_server_replicamanager_underreplicatedpartitions gauge
+kafka_server_replicamanager_underreplicatedpartitions 0.0
+
+# HELP kafka_controller_kafkacontroller_activecontrollercount Number of active controllers
+# TYPE kafka_controller_kafkacontroller_activecontrollercount gauge
+kafka_controller_kafkacontroller_activecontrollercount 1.0
+
+# HELP kafka_controller_kafkacontroller_offlinepartitionscount Number of offline partitions
+# TYPE kafka_controller_kafkacontroller_offlinepartitionscount gauge
+kafka_controller_kafkacontroller_offlinepartitionscount 0.0
+
+# HELP kafka_server_kafkarequesthandlerpool_requesthandleravgidlepercent Average idle percentage of request handler threads
+# TYPE kafka_server_kafkarequesthandlerpool_requesthandleravgidlepercent gauge
+kafka_server_kafkarequesthandlerpool_requesthandleravgidlepercent 0.8234
+
+# HELP kafka_network_requestmetrics_requestspersec Requests per second for different request types
+# TYPE kafka_network_requestmetrics_requestspersec gauge
+kafka_network_requestmetrics_requestspersec{request="Produce",} 89.4
+kafka_network_requestmetrics_requestspersec{request="FetchConsumer",} 156.7
+kafka_network_requestmetrics_requestspersec{request="FetchFollower",} 45.2
+kafka_network_requestmetrics_requestspersec{request="Metadata",} 12.3
+
+# HELP kafka_server_delayedoperationpurgatory_purgatorysize Size of purgatory for delayed operations
+# TYPE kafka_server_delayedoperationpurgatory_purgatorysize gauge
+kafka_server_delayedoperationpurgatory_purgatorysize{delayedOperation="Produce",} 0.0
+kafka_server_delayedoperationpurgatory_purgatorysize{delayedOperation="Fetch",} 0.0
+
+# HELP kafka_server_kafkaserver_brokerstate Broker state (0=Unknown, 1=NotRunning, 2=Starting, 3=RecoveringFromUncleanShutdown, 4=RunningAsBroker, 5=RunningAsController, 6=PendingControlledShutdown, 7=BrokerShuttingDown)
+# TYPE kafka_server_kafkaserver_brokerstate gauge
+kafka_server_kafkaserver_brokerstate 3.0
+
+# HELP kafka_log_logmanager_offlinelogdirectorycount Number of offline log directories
+# TYPE kafka_log_logmanager_offlinelogdirectorycount gauge
+kafka_log_logmanager_offlinelogdirectorycount 0.0
+
+# HELP kafka_server_zookeeperclientmetrics_zookeeperrequestrequestlatencyms ZooKeeper request latency in milliseconds
+# TYPE kafka_server_zookeeperclientmetrics_zookeeperrequestrequestlatencyms gauge
+kafka_server_zookeeperclientmetrics_zookeeperrequestrequestlatencyms{quantile="0.5",} 2.0
+kafka_server_zookeeperclientmetrics_zookeeperrequestrequestlatencyms{quantile="0.95",} 8.0
+kafka_server_zookeeperclientmetrics_zookeeperrequestrequestlatencyms{quantile="0.99",} 15.0
+
+# HELP jvm_memory_bytes_used Used memory in bytes
+# TYPE jvm_memory_bytes_used gauge
+jvm_memory_bytes_used{area="heap",} 2.147483648e+09
+jvm_memory_bytes_used{area="nonheap",} 1.073741824e+08
+
+# HELP jvm_memory_bytes_max Maximum memory in bytes
+# TYPE jvm_memory_bytes_max gauge
+jvm_memory_bytes_max{area="heap",} 4.294967296e+09
+jvm_memory_bytes_max{area="nonheap",} 2.147483648e+08
+
+# HELP jvm_gc_collection_seconds Time spent in garbage collection
+# TYPE jvm_gc_collection_seconds counter
+jvm_gc_collection_seconds_total{gc="G1YoungGen",} 125.456
+jvm_gc_collection_seconds_total{gc="G1OldGen",} 8.234
+
+# HELP process_cpu_seconds_total Total user and system CPU time spent in seconds
+# TYPE process_cpu_seconds_total counter
+process_cpu_seconds_total 1234.56
+
+# HELP process_open_fds Number of open file descriptors
+# TYPE process_open_fds gauge
+process_open_fds 89.0
+
+# HELP process_max_fds Maximum number of open file descriptors
+# TYPE process_max_fds gauge
+process_max_fds 1024.0
+
+# HELP strimzi_resource_state State of Strimzi custom resources (0=Unknown, 1=NotReady, 2=Ready)
+# TYPE strimzi_resource_state gauge
+strimzi_resource_state{kind="Kafka",name="my-cluster",namespace="kafka",} 2.0
+strimzi_resource_state{kind="KafkaConnect",name="my-connect",namespace="kafka",} 2.0
+strimzi_resource_state{kind="KafkaTopic",name="user-events",namespace="kafka",} 2.0
+strimzi_resource_state{kind="KafkaTopic",name="order-events",namespace="kafka",} 2.0
+
+# HELP strimzi_reconciliations_total Total number of reconciliations
+# TYPE strimzi_reconciliations_total counter
+strimzi_reconciliations_total{kind="Kafka",namespace="kafka",} 156.0
+strimzi_reconciliations_total{kind="KafkaConnect",namespace="kafka",} 89.0
+strimzi_reconciliations_total{kind="KafkaTopic",namespace="kafka",} 234.0
+
+# HELP strimzi_reconciliations_duration_seconds Time spent on reconciliations
+# TYPE strimzi_reconciliations_duration_seconds histogram
+strimzi_reconciliations_duration_seconds_bucket{kind="Kafka",namespace="kafka",le="0.1",} 45.0
+strimzi_reconciliations_duration_seconds_bucket{kind="Kafka",namespace="kafka",le="0.5",} 78.0
+strimzi_reconciliations_duration_seconds_bucket{kind="Kafka",namespace="kafka",le="1.0",} 123.0
+strimzi_reconciliations_duration_seconds_bucket{kind="Kafka",namespace="kafka",le="5.0",} 145.0
+strimzi_reconciliations_duration_seconds_bucket{kind="Kafka",namespace="kafka",le="10.0",} 156.0
+strimzi_reconciliations_duration_seconds_bucket{kind="Kafka",namespace="kafka",le="+Inf",} 156.0
+strimzi_reconciliations_duration_seconds_sum{kind="Kafka",namespace="kafka",} 234.56
+strimzi_reconciliations_duration_seconds_count{kind="Kafka",namespace="kafka",} 156.0
