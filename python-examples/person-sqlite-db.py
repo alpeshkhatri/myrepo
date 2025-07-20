@@ -1,134 +1,190 @@
 import sqlite3
 from dataclasses import dataclass, fields
-from typing import Optional, List
-import json
+from typing import List, Optional
+from datetime import datetime
 
 @dataclass
 class Person:
     name: str
     age: int
     email: str
+    created_at: Optional[datetime] = None
     id: Optional[int] = None
     
-    def to_dict(self):
-        """Convert dataclass to dictionary"""
-        return {field.name: getattr(self, field.name) for field in fields(self)}
-    
-    @classmethod
-    def from_dict(cls, data):
-        """Create dataclass instance from dictionary"""
-        return cls(**data)
+    def __post_init__(self):
+        if self.created_at is None:
+            self.created_at = datetime.now()
 
-class PersonDB:
+class PersonDatabase:
     def __init__(self, db_path: str = "people.db"):
         self.db_path = db_path
-        self.init_db()
+        self.init_database()
     
-    def init_db(self):
-        """Initialize the database and create table"""
+    def init_database(self):
+        """Initialize the database and create the table if it doesn't exist."""
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute('''
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS people (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
                     age INTEGER NOT NULL,
-                    email TEXT UNIQUE NOT NULL
+                    email TEXT UNIQUE NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            ''')
+            """)
             conn.commit()
     
-    def create(self, person: Person) -> Person:
-        """Insert a new person and return with assigned ID"""
+    def insert_person(self, person: Person) -> int:
+        """Insert a person into the database and return the ID."""
         with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute(
-                'INSERT INTO people (name, age, email) VALUES (?, ?, ?)',
-                (person.name, person.age, person.email)
-            )
+            cursor = conn.execute("""
+                INSERT INTO people (name, age, email, created_at)
+                VALUES (?, ?, ?, ?)
+            """, (person.name, person.age, person.email, person.created_at))
+            conn.commit()
             person.id = cursor.lastrowid
-            conn.commit()
-        return person
+            return cursor.lastrowid
     
-    def get(self, person_id: int) -> Optional[Person]:
-        """Get a person by ID"""
+    def get_person_by_id(self, person_id: int) -> Optional[Person]:
+        """Retrieve a person by ID."""
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            cursor = conn.execute('SELECT * FROM people WHERE id = ?', (person_id,))
+            cursor = conn.execute("""
+                SELECT * FROM people WHERE id = ?
+            """, (person_id,))
             row = cursor.fetchone()
+            
             if row:
-                return Person(**dict(row))
-        return None
+                return Person(
+                    id=row['id'],
+                    name=row['name'],
+                    age=row['age'],
+                    email=row['email'],
+                    created_at=datetime.fromisoformat(row['created_at'])
+                )
+            return None
     
-    def get_all(self) -> List[Person]:
-        """Get all people"""
+    def get_all_people(self) -> List[Person]:
+        """Retrieve all people from the database."""
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            cursor = conn.execute('SELECT * FROM people')
-            return [Person(**dict(row)) for row in cursor.fetchall()]
+            cursor = conn.execute("SELECT * FROM people ORDER BY name")
+            rows = cursor.fetchall()
+            
+            people = []
+            for row in rows:
+                people.append(Person(
+                    id=row['id'],
+                    name=row['name'],
+                    age=row['age'],
+                    email=row['email'],
+                    created_at=datetime.fromisoformat(row['created_at'])
+                ))
+            return people
     
-    def update(self, person: Person) -> bool:
-        """Update an existing person"""
+    def update_person(self, person: Person) -> bool:
+        """Update a person in the database."""
+        if person.id is None:
+            return False
+            
         with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute(
-                'UPDATE people SET name = ?, age = ?, email = ? WHERE id = ?',
-                (person.name, person.age, person.email, person.id)
-            )
+            cursor = conn.execute("""
+                UPDATE people 
+                SET name = ?, age = ?, email = ?
+                WHERE id = ?
+            """, (person.name, person.age, person.email, person.id))
             conn.commit()
             return cursor.rowcount > 0
     
-    def delete(self, person_id: int) -> bool:
-        """Delete a person by ID"""
+    def delete_person(self, person_id: int) -> bool:
+        """Delete a person from the database."""
         with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute('DELETE FROM people WHERE id = ?', (person_id,))
+            cursor = conn.execute("DELETE FROM people WHERE id = ?", (person_id,))
             conn.commit()
             return cursor.rowcount > 0
     
-    def find_by_email(self, email: str) -> Optional[Person]:
-        """Find a person by email"""
+    def find_people_by_age_range(self, min_age: int, max_age: int) -> List[Person]:
+        """Find people within a specific age range."""
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            cursor = conn.execute('SELECT * FROM people WHERE email = ?', (email,))
-            row = cursor.fetchone()
-            if row:
-                return Person(**dict(row))
-        return None
+            cursor = conn.execute("""
+                SELECT * FROM people 
+                WHERE age BETWEEN ? AND ? 
+                ORDER BY age
+            """, (min_age, max_age))
+            rows = cursor.fetchall()
+            
+            people = []
+            for row in rows:
+                people.append(Person(
+                    id=row['id'],
+                    name=row['name'],
+                    age=row['age'],
+                    email=row['email'],
+                    created_at=datetime.fromisoformat(row['created_at'])
+                ))
+            return people
 
 # Example usage
+def main():
+    # Initialize the database
+    db = PersonDatabase()
+    
+    # Create some sample people
+    people = [
+        Person("Alice Johnson", 28, "alice@example.com"),
+        Person("Bob Smith", 35, "bob@example.com"),
+        Person("Charlie Brown", 42, "charlie@example.com"),
+        Person("Diana Prince", 30, "diana@example.com")
+    ]
+    
+    # Insert people into the database
+    print("Inserting people...")
+    for person in people:
+        person_id = db.insert_person(person)
+        print(f"Inserted {person.name} with ID: {person_id}")
+    
+    print("\n" + "="*50)
+    
+    # Retrieve and display all people
+    print("All people in database:")
+    all_people = db.get_all_people()
+    for person in all_people:
+        print(f"ID: {person.id}, Name: {person.name}, Age: {person.age}, "
+              f"Email: {person.email}, Created: {person.created_at.strftime('%Y-%m-%d %H:%M:%S')}")
+    
+    print("\n" + "="*50)
+    
+    # Get a specific person by ID
+    person = db.get_person_by_id(2)
+    if person:
+        print(f"Person with ID 2: {person.name}, {person.age} years old")
+    
+    # Update a person
+    if person:
+        person.age = 36
+        if db.update_person(person):
+            print(f"Updated {person.name}'s age to {person.age}")
+    
+    print("\n" + "="*50)
+    
+    # Find people in age range
+    print("People aged 30-40:")
+    age_filtered = db.find_people_by_age_range(30, 40)
+    for person in age_filtered:
+        print(f"- {person.name}, {person.age} years old")
+    
+    print("\n" + "="*50)
+    
+    # Delete a person
+    if db.delete_person(3):
+        print("Deleted person with ID 3")
+    
+    # Show remaining people
+    print("\nRemaining people:")
+    remaining_people = db.get_all_people()
+    for person in remaining_people:
+        print(f"- {person.name}")
+
 if __name__ == "__main__":
-    # Initialize database
-    db = PersonDB()
-    
-    # Create new people
-    alice = Person("Alice Smith", 30, "alice@example.com")
-    bob = Person("Bob Jones", 25, "bob@example.com")
-    
-    # Insert into database
-    alice = db.create(alice)
-    bob = db.create(bob)
-    
-    print(f"Created Alice with ID: {alice.id}")
-    print(f"Created Bob with ID: {bob.id}")
-    
-    # Read from database
-    retrieved_alice = db.get(alice.id)
-    print(f"Retrieved: {retrieved_alice}")
-    
-    # Update
-    alice.age = 31
-    db.update(alice)
-    print(f"Updated Alice's age to {alice.age}")
-    
-    # Get all people
-    all_people = db.get_all()
-    print(f"All people: {all_people}")
-    
-    # Find by email
-    found_bob = db.find_by_email("bob@example.com")
-    print(f"Found by email: {found_bob}")
-    
-    # Delete
-    db.delete(bob.id)
-    print(f"Deleted Bob (ID: {bob.id})")
-    
-    # Verify deletion
-    remaining_people = db.get_all()
-    print(f"Remaining people: {remaining_people}")
+    main()
