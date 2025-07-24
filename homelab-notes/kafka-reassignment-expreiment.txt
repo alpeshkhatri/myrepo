@@ -1,3 +1,11 @@
+helm repo list
+NAME                    URL
+jetstack                https://charts.jetstack.io
+stable                  https://charts.helm.sh/stable
+bitnami                 https://charts.bitnami.com/bitnami
+prometheus-community    https://prometheus-community.github.io/helm-charts
+
+
 A new breed of messaging systems like Redpanda, Apache Pulsar, and NATS JetStream are storming into the field, promising everything Kafka does,but better. In fact, many engineering teams are quietly migrating from Kafka to these underdogs for one simple reason: Kafka’s architecture is showing its age.
 
 
