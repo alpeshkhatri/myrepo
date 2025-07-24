@@ -1,0 +1,77 @@
+A new breed of messaging systems like Redpanda, Apache Pulsar, and NATS JetStream are storming into the field, promising everything Kafka does,but better. In fact, many engineering teams are quietly migrating from Kafka to these underdogs for one simple reason: Kafka’s architecture is showing its age.
+
+
+
+bin/kafka-topics.sh     --bootstrap-server $B --topic my-topic --command-config /tmp/kafka-client-config.properties --describe
+
+Topic: my-topic TopicId: EGaZzi6fQzexq63n0hioYg PartitionCount: 12      ReplicationFactor: 3    Configs:
+        Topic: my-topic Partition: 0    Leader: 11      Replicas: 11,12,10      Isr: 10,12,11
+        Topic: my-topic Partition: 1    Leader: 12      Replicas: 12,10,11      Isr: 10,12,11
+        Topic: my-topic Partition: 2    Leader: 10      Replicas: 10,11,12      Isr: 10,12,11
+        Topic: my-topic Partition: 3    Leader: 12      Replicas: 12,11,10      Isr: 10,12,11
+        Topic: my-topic Partition: 4    Leader: 11      Replicas: 11,10,12      Isr: 10,11,12
+        Topic: my-topic Partition: 5    Leader: 10      Replicas: 10,12,11      Isr: 10,12,11
+        Topic: my-topic Partition: 6    Leader: 12      Replicas: 12,11,10      Isr: 10,12,11
+        Topic: my-topic Partition: 7    Leader: 11      Replicas: 11,10,12      Isr: 10,11,12
+        Topic: my-topic Partition: 8    Leader: 10      Replicas: 10,12,11      Isr: 10,11,12
+        Topic: my-topic Partition: 9    Leader: 10      Replicas: 10,11,12      Isr: 10,12,11
+        Topic: my-topic Partition: 10   Leader: 11      Replicas: 11,12,10      Isr: 10,12,11
+        Topic: my-topic Partition: 11   Leader: 12      Replicas: 12,10,11      Isr: 10,12,11
+
+cat > /tmp/topics-to-move.json << EOF
+{
+    "topics": [
+        {"topic": "my-topic"}
+    ],
+    "version": 1
+}
+EOF
+
+bin/kafka-reassign-partitions.sh --bootstrap-server $B --command-config /tmp/kafka-client-config.properties --topics-to-move-json-file /tmp/topics-to-move.json --broker-list "10,11,12"  --generate > /tmp/reassignment-output.txt
+
+Current partition replica assignment
+{"version":1,"partitions":[{"topic":"my-topic","partition":0,"replicas":[11,12,10],"log_dirs":["any","any","any"]},{"topic":"my-topic","partition":1,"replicas":[12,10,11],"log_dirs":["any","any","any"]},{"topic":"my-topic","partition":2,"replicas":[10,11,12],"log_dirs":["any","any","any"]},{"topic":"my-topic","partition":3,"replicas":[12,11,10],"log_dirs":["any","any","any"]},{"topic":"my-topic","partition":4,"replicas":[11,10,12],"log_dirs":["any","any","any"]},{"topic":"my-topic","partition":5,"replicas":[10,12,11],"log_dirs":["any","any","any"]},{"topic":"my-topic","partition":6,"replicas":[12,11,10],"log_dirs":["any","any","any"]},{"topic":"my-topic","partition":7,"replicas":[11,10,12],"log_dirs":["any","any","any"]},{"topic":"my-topic","partition":8,"replicas":[10,12,11],"log_dirs":["any","any","any"]},{"topic":"my-topic","partition":9,"replicas":[10,11,12],"log_dirs":["any","any","any"]},{"topic":"my-topic","partition":10,"replicas":[11,12,10],"log_dirs":["any","any","any"]},{"topic":"my-topic","partition":11,"replicas":[12,10,11],"log_dirs":["any","any","any"]}]}
+
+Proposed partition reassignment configuration
+{"version":1,"partitions":[{"topic":"my-topic","partition":0,"replicas":[10,11,12],"log_dirs":["any","any","any"]},{"topic":"my-topic","partition":1,"replicas":[11,12,10],"log_dirs":["any","any","any"]},{"topic":"my-topic","partition":2,"replicas":[12,10,11],"log_dirs":["any","any","any"]},{"topic":"my-topic","partition":3,"replicas":[10,12,11],"log_dirs":["any","any","any"]},{"topic":"my-topic","partition":4,"replicas":[11,10,12],"log_dirs":["any","any","any"]},{"topic":"my-topic","partition":5,"replicas":[12,11,10],"log_dirs":["any","any","any"]},{"topic":"my-topic","partition":6,"replicas":[10,11,12],"log_dirs":["any","any","any"]},{"topic":"my-topic","partition":7,"replicas":[11,12,10],"log_dirs":["any","any","any"]},{"topic":"my-topic","partition":8,"replicas":[12,10,11],"log_dirs":["any","any","any"]},{"topic":"my-topic","partition":9,"replicas":[10,12,11],"log_dirs":["any","any","any"]},{"topic":"my-topic","partition":10,"replicas":[11,10,12],"log_dirs":["any","any","any"]},{"topic":"my-topic","partition":11,"replicas":[12,11,10],"log_dirs":["any","any","any"]}]}
+
+cat > /tmp/custom-reassignment.json << 'EOF'
+{
+    "version": 1,
+    "partitions": [
+        {
+            "topic": "my-topic",
+            "partition": 3,
+            "replicas": [10, 11, 12],
+            "log_dirs": ["any", "any", "any"]
+        }
+    ]
+}
+EOF
+
+bin/kafka-reassign-partitions.sh --bootstrap-server $B --command-config /tmp/kafka-client-config.properties --reassignment-json-file /tmp/custom-reassignment.json --execute
+
+
+{"version":1,"partitions":[{"topic":"my-topic","partition":3,"replicas":[12,11,10],"log_dirs":["any","any","any"]}]}
+
+Save this to use as the --reassignment-json-file option during rollback
+Successfully started partition reassignment for my-topic-3
+
+
+[kafka@kafkaflink kafka]$ bin/kafka-topics.sh     --bootstrap-server $Be  --topic my-topic --command-config /tmp/kafka-client-config.properties --describe
+Topic: my-topic TopicId: EGaZzi6fQzexq63n0hioYg PartitionCount: 12      ReplicationFactor: 3    Configs:
+        Topic: my-topic Partition: 0    Leader: 11      Replicas: 11,12,10      Isr: 10,12,11
+        Topic: my-topic Partition: 1    Leader: 12      Replicas: 12,10,11      Isr: 10,12,11
+        Topic: my-topic Partition: 2    Leader: 10      Replicas: 10,11,12      Isr: 10,12,11
+        Topic: my-topic Partition: 3    Leader: 12      Replicas: 10,11,12      Isr: 10,12,11
+        Topic: my-topic Partition: 4    Leader: 11      Replicas: 11,10,12      Isr: 10,11,12
+        Topic: my-topic Partition: 5    Leader: 10      Replicas: 10,12,11      Isr: 10,12,11
+        Topic: my-topic Partition: 6    Leader: 12      Replicas: 12,11,10      Isr: 10,12,11
+        Topic: my-topic Partition: 7    Leader: 11      Replicas: 11,10,12      Isr: 10,11,12
+        Topic: my-topic Partition: 8    Leader: 10      Replicas: 10,12,11      Isr: 10,11,12
+        Topic: my-topic Partition: 9    Leader: 10      Replicas: 10,11,12      Isr: 10,12,11
+        Topic: my-topic Partition: 10   Leader: 11      Replicas: 11,12,10      Isr: 10,12,11
+        Topic: my-topic Partition: 11   Leader: 12      Replicas: 12,10,11      Isr: 10,12,11
+[kafka@kafkaflink kafka]$
+
+
