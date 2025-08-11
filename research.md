@@ -19,3 +19,37 @@ Enable JMX metrics to track client connections:
 properties# In server.properties
 kafka.metrics.reporters=org.apache.kafka.common.metrics.JmxReporter
 You can then query JMX beans like kafka.server:type=socket-server-metrics to get connection information.
+
+```
+jshell> void getKafkaMetrics(String pattern) {
+   ...>     try {
+   ...>         String jmxUrl = "service:jmx:rmi:///jndi/rmi://localhost:9999/jmxrmi";
+   ...>         JMXServiceURL serviceURL = new JMXServiceURL(jmxUrl);
+   ...>         JMXConnector connector = JMXConnectorFactory.connect(serviceURL, null);
+   ...>         MBeanServerConnection mbsc = connector.getMBeanServerConnection();
+   ...>         
+   ...>         ObjectName query = new ObjectName(pattern);
+   ...>         Set<ObjectName> beans = mbsc.queryNames(query, null);
+   ...>         
+   ...>         beans.forEach(bean -> {
+   ...>             System.out.println("\n=== " + bean + " ===");
+   ...>             try {
+   ...>                 MBeanInfo info = mbsc.getMBeanInfo(bean);
+   ...>                 for (MBeanAttributeInfo attr : info.getAttributes()) {
+   ...>                     try {
+   ...>                         Object value = mbsc.getAttribute(bean, attr.getName());
+   ...>                         System.out.println(attr.getName() + ": " + value);
+   ...>                     } catch (Exception e) { /* skip */ }
+   ...>                 }
+   ...>             } catch (Exception e) { e.printStackTrace(); }
+   ...>         });
+   ...>         
+   ...>         connector.close();
+   ...>     } catch (Exception e) { e.printStackTrace(); }
+   ...> }
+
+// Usage:
+jshell> getKafkaMetrics("kafka.server:type=socket-server-metrics,*")
+jshell> getKafkaMetrics("kafka.server:type=BrokerTopicMetrics,*")
+jshell> getKafkaMetrics("kafka.network:type=RequestMetrics,*")
+```
