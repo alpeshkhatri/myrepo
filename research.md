@@ -14,3 +14,8 @@ log4j.appender.requestAppender.layout.ConversionPattern=[%d] %p %m (%c)%n
 ```
 This will log all requests including client IP addresses, but you'll need to filter for specific topics in the logs.
 
+## JMX Metrics and Monitoring
+Enable JMX metrics to track client connections:
+properties# In server.properties
+kafka.metrics.reporters=org.apache.kafka.common.metrics.JmxReporter
+You can then query JMX beans like kafka.server:type=socket-server-metrics to get connection information.
