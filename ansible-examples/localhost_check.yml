@@ -1,0 +1,294 @@
+# Directory structure:
+# roles/
+#   localhost_check/
+#     tasks/
+#       main.yml
+#     defaults/
+#       main.yml
+#     meta/
+#       main.yml
+# playbooks/
+#   site.yml (global playbook)
+# inventory/
+#   hosts
+# ansible.cfg
+
+# =============================================================================
+# roles/localhost_check/defaults/main.yml
+# =============================================================================
+---
+# Default variables for localhost_check role
+localhost_check_strict_mode: false
+localhost_check_ipv6: false
+localhost_check_report_format: "detailed"  # detailed, summary, json
+
+# =============================================================================
+# roles/localhost_check/meta/main.yml
+# =============================================================================
+---
+galaxy_info:
+  author: Your Name
+  description: Check localhost entries in /etc/hosts
+  company: Your Company
+  license: MIT
+  min_ansible_version: 2.9
+  platforms:
+    - name: EL
+      versions:
+        - 7
+        - 8
+        - 9
+    - name: Ubuntu
+      versions:
+        - 18.04
+        - 20.04
+        - 22.04
+    - name: Debian
+      versions:
+        - 10
+        - 11
+  galaxy_tags:
+    - system
+    - networking
+    - validation
+
+dependencies: []
+
+# =============================================================================
+# roles/localhost_check/tasks/main.yml
+# =============================================================================
+---
+- name: Check if /etc/hosts exists
+  stat:
+    path: /etc/hosts
+  register: hosts_file_stat
+
+- name: Read /etc/hosts content
+  slurp:
+    src: /etc/hosts
+  register: hosts_content
+  when: hosts_file_stat.stat.exists
+
+- name: Check for IPv4 localhost entries
+  set_fact:
+    localhost_127_exists: "{{ '127.0.0.1' in hosts_content.content | b64decode }}"
+    localhost_name_exists: "{{ 'localhost' in hosts_content.content | b64decode }}"
+    localhost_entry_exists: "{{ '127.0.0.1.*localhost' | regex_search(hosts_content.content | b64decode) is not none }}"
+  when: hosts_file_stat.stat.exists
+
+- name: Check for IPv6 localhost entries
+  set_fact:
+    localhost_ipv6_exists: "{{ '::1' in hosts_content.content | b64decode }}"
+    localhost_ipv6_entry_exists: "{{ '::1.*localhost' | regex_search(hosts_content.content | b64decode) is not none }}"
+  when: 
+    - hosts_file_stat.stat.exists
+    - localhost_check_ipv6 | bool
+
+- name: Set overall localhost status
+  set_fact:
+    localhost_status_ok: >-
+      {{
+        hosts_file_stat.stat.exists and 
+        localhost_entry_exists and
+        (not localhost_check_ipv6 | bool or localhost_ipv6_entry_exists | default(true))
+      }}
+
+- name: Display detailed results
+  debug:
+    msg: |
+      Host: {{ inventory_hostname }}
+      /etc/hosts exists: {{ hosts_file_stat.stat.exists }}
+      IPv4 localhost entry OK: {{ localhost_entry_exists | default('N/A') }}
+      {% if localhost_check_ipv6 | bool %}
+      IPv6 localhost entry OK: {{ localhost_ipv6_entry_exists | default('N/A') }}
+      {% endif %}
+      Overall Status: {{ 'PASS' if localhost_status_ok else 'FAIL' }}
+  when: localhost_check_report_format == 'detailed'
+
+- name: Display summary results
+  debug:
+    msg: "{{ inventory_hostname }}: {{ 'PASS' if localhost_status_ok else 'FAIL' }}"
+  when: localhost_check_report_format == 'summary'
+
+- name: Store results for JSON output
+  set_fact:
+    localhost_check_result:
+      hostname: "{{ inventory_hostname }}"
+      hosts_file_exists: "{{ hosts_file_stat.stat.exists }}"
+      ipv4_localhost_ok: "{{ localhost_entry_exists | default(false) }}"
+      ipv6_localhost_ok: "{{ localhost_ipv6_entry_exists | default('not_checked') }}"
+      overall_status: "{{ 'PASS' if localhost_status_ok else 'FAIL' }}"
+      timestamp: "{{ ansible_date_time.iso8601 }}"
+  when: localhost_check_report_format == 'json'
+
+- name: Fail if localhost entry is missing (strict mode)
+  fail:
+    msg: |
+      Host {{ inventory_hostname }} localhost check failed:
+      - /etc/hosts exists: {{ hosts_file_stat.stat.exists }}
+      - IPv4 localhost entry: {{ localhost_entry_exists | default('missing') }}
+      {% if localhost_check_ipv6 | bool %}
+      - IPv6 localhost entry: {{ localhost_ipv6_entry_exists | default('missing') }}
+      {% endif %}
+  when: 
+    - localhost_check_strict_mode | bool
+    - not localhost_status_ok
+
+- name: Collect results for final report
+  set_fact:
+    host_check_summary: |
+      {% if not hosts_file_stat.stat.exists %}
+      {{ inventory_hostname }}: /etc/hosts file missing
+      {% elif not localhost_status_ok %}
+      {{ inventory_hostname }}: localhost entry missing or malformed
+      {% else %}
+      {{ inventory_hostname }}: localhost entry OK
+      {% endif %}
+  delegate_to: localhost
+  delegate_facts: yes
+
+# =============================================================================
+# playbooks/site.yml (Global Playbook)
+# =============================================================================
+---
+- name: Global infrastructure validation
+  hosts: all
+  gather_facts: yes
+  become: yes
+  
+  vars:
+    # Global variables that can override role defaults
+    global_strict_mode: false
+    check_ipv6_localhost: false
+    
+  roles:
+    - role: localhost_check
+      vars:
+        localhost_check_strict_mode: "{{ global_strict_mode }}"
+        localhost_check_ipv6: "{{ check_ipv6_localhost }}"
+        localhost_check_report_format: "detailed"
+      tags: ['localhost', 'validation']
+      
+    # Add other roles here
+    # - role: dns_check
+    #   tags: ['dns', 'validation']
+    # - role: ntp_check  
+    #   tags: ['ntp', 'validation']
+
+  post_tasks:
+    - name: Generate final localhost check report
+      debug:
+        msg: |
+          === LOCALHOST ENTRY CHECK SUMMARY ===
+          {% for host in ansible_play_hosts %}
+          {{ hostvars[host]['host_check_summary'] | default(host + ': check not completed') }}
+          {% endfor %}
+          
+          Total hosts checked: {{ ansible_play_hosts | length }}
+          Check completed at: {{ ansible_date_time.iso8601 }}
+      run_once: yes
+      delegate_to: localhost
+      tags: ['localhost', 'validation']
+
+# =============================================================================
+# Alternative: Dedicated localhost check playbook
+# playbooks/localhost_check.yml
+# =============================================================================
+---
+- name: Dedicated localhost validation playbook  
+  hosts: all
+  gather_facts: yes
+  become: yes
+  
+  roles:
+    - role: localhost_check
+      vars:
+        localhost_check_strict_mode: "{{ strict_mode | default(false) }}"
+        localhost_check_ipv6: "{{ check_ipv6 | default(false) }}"
+        localhost_check_report_format: "{{ report_format | default('detailed') }}"
+
+# =============================================================================
+# Usage Examples
+# =============================================================================
+
+# 1. Run the global playbook (includes localhost check + other validations)
+# ansible-playbook playbooks/site.yml
+
+# 2. Run only localhost checks from global playbook
+# ansible-playbook playbooks/site.yml --tags localhost
+
+# 3. Run dedicated localhost check playbook
+# ansible-playbook playbooks/localhost_check.yml
+
+# 4. Run with custom variables
+# ansible-playbook playbooks/site.yml --tags localhost -e "global_strict_mode=true check_ipv6_localhost=true"
+
+# 5. Run localhost check in strict mode
+# ansible-playbook playbooks/localhost_check.yml -e "strict_mode=true"
+
+# 6. Run with JSON output format
+# ansible-playbook playbooks/localhost_check.yml -e "report_format=json"
+
+# 7. Run against specific host groups
+# ansible-playbook playbooks/site.yml --tags localhost -l "webservers"
+
+# =============================================================================
+# inventory/hosts (Sample inventory)
+# =============================================================================
+[webservers]
+web01.example.com
+web02.example.com
+
+[databases]
+db01.example.com
+db02.example.com
+
+[loadbalancers]
+lb01.example.com
+
+[all:vars]
+ansible_user=ansible
+ansible_ssh_private_key_file=~/.ssh/ansible_key
+
+# =============================================================================
+# ansible.cfg (Configuration file)
+# =============================================================================
+[defaults]
+inventory = inventory/hosts
+roles_path = roles
+host_key_checking = False
+retry_files_enabled = False
+stdout_callback = yaml
+gathering = smart
+fact_caching = jsonfile
+fact_caching_connection = /tmp/ansible_facts_cache
+fact_caching_timeout = 3600
+
+[ssh_connection]
+ssh_args = -o ControlMaster=auto -o ControlPersist=60s
+pipelining = True
+
+# =============================================================================
+# README.MD
+# =============================================================================
+# Directory Structure to Create:
+# mkdir -p roles/localhost_check/{tasks,defaults,meta}
+# mkdir -p playbooks
+# mkdir -p inventory
+# 
+# # Create the role structure
+# ansible-galaxy init roles/localhost_check
+# 
+# # Copy the content from the artifact into respective files
+# # Then run your playbooks
+# ansible-playbook playbooks/site.yml --tags localhost
+# 
+# You can extend this pattern by adding more validation roles like:
+# 
+# dns_check - Validate DNS resolution
+# ntp_check - Check NTP synchronization
+# disk_space_check - Monitor disk usage
+# service_check - Validate required services
+# 
+# Each role follows the same pattern and can be selectively run using tags. This creates a comprehensive infrastructure validation framework that's maintainable and scalable.
+# 
