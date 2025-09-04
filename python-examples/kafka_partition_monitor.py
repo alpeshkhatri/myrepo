@@ -11,6 +11,16 @@ This script monitors Kafka clusters for:
 Requirements:
 pip install kafka-python
 """
+"""
+# Basic health check
+python kafka_monitor.py --brokers "broker1:9092,broker2:9092"
+
+# Continuous monitoring every 30 seconds
+python kafka_monitor.py --brokers "localhost:9092" --continuous --interval 30
+
+# Save report to JSON file
+python kafka_monitor.py --brokers "localhost:9092" --save
+"""
 
 import json
 import time
