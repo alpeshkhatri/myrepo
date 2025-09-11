@@ -7,3 +7,5 @@
 [blurred-background-with-tables-chairs] (https://www.fineshare.com/zoom-background/office-zoom-background/blurred-background-with-tables-chairs.html)
 
 [5 ptyhon] (https://python.plainenglish.io/5-python-decorators-that-will-transform-your-coding-workflow-38a9c199f7d9)
+
+[kip 848 consumer rebalance protocol](https://www.confluent.io/blog/kip-848-consumer-rebalance-protocol/)
