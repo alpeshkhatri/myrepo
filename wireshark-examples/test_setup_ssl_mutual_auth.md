@@ -17,3 +17,6 @@ openssl s_server -accept localhost:4433 -cert server.crt -key server.key -CAfile
 ```bash
 openssl s_client -connect localhost:4433 -showcerts -keylogfile sslkeylog.txt
 ```
+# example mutual auth requested vs required
+
+<img width="1810" height="612" alt="Screenshot 2025-11-19 104124" src="https://github.com/user-attachments/assets/29cb7f07-9eab-4cd0-ae19-1e79242a9cb0" />
