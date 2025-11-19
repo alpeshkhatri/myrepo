@@ -13,7 +13,7 @@ openssl s_server -accept localhost:4433 -cert server.crt -key server.key -CAfile
 ```bash
 openssl s_server -accept localhost:4433 -cert server.crt -key server.key -CAfile ca.crt -Verify 2 -tls1_3
 ```
-# certificate request packets are encrypted. Does not show up in normal wireshark. keylogfile is needed for WireShark to decrypt.
+# in TLS 1.3 most of ssl handshake is encrypted. The full handshake does not show up in normal wireshark. keylogfile is needed for WireShark to decrypt the SSL handshake.
 ```bash
 openssl s_client -connect localhost:4433 -showcerts -keylogfile sslkeylog.txt
 ```
