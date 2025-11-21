@@ -1,4 +1,4 @@
-# TLS 1.3 Handshake Protocol with mutual auth requested vs required.
+# TLS 1.3 Handshake Protocol with mutual auth Requested vs Required.
 ```mermaid
 sequenceDiagram
     participant Client
@@ -15,10 +15,10 @@ sequenceDiagram
     Client->>Server: Change Cipher Spec
     Client->>Server: Client Sends Certificate if any
     Client->>Server: Finished
-    alt Client sent certicate
+    alt Server Mutual Auth is Requested and Client did send certicate
       Server->>Client: New Session Ticket 
       Client->>Server: New Session Ticket 
-    else Client did not send certicate
+    else Server Mutual Auth is Required and Client did send certicate
       Server->>Client: Alert Fatal Certificate Required 
     end
 
